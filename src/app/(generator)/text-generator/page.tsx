@@ -20,7 +20,7 @@ export default function Page() {
   });
 
   useEffect(() => {
-    const socket: Socket = io('http://localhost:3001');
+    const socket: Socket = io('http://localhost:3002');
 
     socket.on('qr', (qr: string | null) => {
       setQrCode(qr);
@@ -41,8 +41,8 @@ export default function Page() {
         <div className="flex flex-col items-center justify-center p-10 bg-white/10 backdrop-blur-md rounded-2xl m-5 border border-white/20">
           <h2 className="text-xl font-bold mb-4 text-white">Conexión de WhatsApp</h2>
           <div className={`px-4 py-2 rounded-full text-sm font-medium mb-6 ${status === 'Connected' ? 'bg-green-500/20 text-green-400' :
-              status === 'Connecting' ? 'bg-yellow-500/20 text-yellow-400' :
-                'bg-red-500/20 text-red-400'
+            status === 'Connecting' ? 'bg-yellow-500/20 text-yellow-400' :
+              'bg-red-500/20 text-red-400'
             }`}>
             Estado: {status}
           </div>

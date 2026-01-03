@@ -45,3 +45,8 @@ next-env.d.ts
 .drizzle
 .vscode
 .idea
+# WhatsApp session
+auth_info_baileys/
+
+.env
+auth_info_baileys/
