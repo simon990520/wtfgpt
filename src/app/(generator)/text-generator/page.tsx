@@ -3,24 +3,28 @@
 import GeneratorInput from '@/components/generator/generator-input';
 import { RenderMessage } from '@/components/generator/render-message';
 import { GradientBlob } from '@/components/gradient-blob';
-import { useChat } from '@ai-sdk/react';
-import { createIdGenerator } from 'ai';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  parts: { type: 'text'; text: string }[];
+}
+
 export default function Page() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('Disconnected');
-
-  const chatHandler = useChat({
-    generateId: createIdGenerator({ prefix: 'msgc' }),
-    sendExtraMessageFields: true,
-    onResponse: () => setIsThinking(false),
-  });
+  const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    const socket: Socket = io('http://localhost:3002');
+    socketRef.current = io('http://localhost:3002');
+
+    const socket = socketRef.current;
 
     socket.on('qr', (qr: string | null) => {
       setQrCode(qr);
@@ -30,10 +34,53 @@ export default function Page() {
       setStatus(newStatus);
     });
 
+    socket.on('ai_response', (text: string) => {
+      const aiMsg: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: text,
+        parts: [{ type: 'text', text: text }]
+      };
+      setMessages(prev => [...prev, aiMsg]);
+      setIsThinking(false);
+    });
+
+    socket.on('ai_error', (err: string) => {
+      console.error('AI Error:', err);
+      setIsThinking(false);
+    });
+
     return () => {
       socket.disconnect();
     };
   }, []);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || !socketRef.current) return;
+
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input,
+      parts: [{ type: 'text', text: input }]
+    };
+
+    setMessages(prev => [...prev, userMsg]);
+    setIsThinking(true);
+
+    // Send to worker
+    socketRef.current.emit('ui_message', input);
+    setInput('');
+  };
+
+  // Mimic the useChat structure for RenderMessage
+  const chatHandlerMock = {
+    messages,
+    input,
+    handleInputChange: (e: any) => setInput(e.target.value),
+    handleSubmit
+  };
 
   return (
     <div className="contents">
@@ -60,20 +107,16 @@ export default function Page() {
         </div>
       )}
 
-      {status === 'Connected' && (
-        <RenderMessage useChat={chatHandler} isThinking={isThinking} />
-      )}
+      {/* Main Chat Interface */}
+      <div className="flex-1 overflow-y-auto">
+        <RenderMessage useChat={chatHandlerMock as any} isThinking={isThinking} />
+      </div>
 
-      <div className="px-5 md:px-12">
-        <form
-          onSubmit={(e) => {
-            setIsThinking(true);
-            chatHandler.handleSubmit(e);
-          }}
-        >
+      <div className="px-5 md:px-12 pb-10">
+        <form onSubmit={handleSubmit}>
           <GeneratorInput
-            value={chatHandler.input}
-            onChange={chatHandler.handleInputChange}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
             disabled={status !== 'Connected'}
           />
         </form>
