@@ -26,12 +26,27 @@ export default function Page() {
 
     const socket = socketRef.current;
 
+    socket.on('connect', () => {
+      console.log('🔌 Socket Connected');
+      socket.emit('request_history');
+    });
+
     socket.on('qr', (qr: string | null) => {
       setQrCode(qr);
     });
 
     socket.on('status', (newStatus: string) => {
       setStatus(newStatus);
+    });
+
+    socket.on('history_response', (history: any[]) => {
+      const formatted: Message[] = history.map((msg, i) => ({
+        id: `hist-${i}`,
+        role: msg.is_from_me ? 'assistant' : 'user', // is_from_me=true means AI (Assistant)
+        content: msg.content,
+        parts: [{ type: 'text', text: msg.content }]
+      }));
+      setMessages(formatted);
     });
 
     socket.on('ai_response', (text: string) => {
